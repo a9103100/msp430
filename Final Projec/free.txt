@@ -1,0 +1,185 @@
+#include "io430.h"
+#include "intrinsics.h"
+#include "stdio.h"
+#define CPU_CLOCK       1000000
+#define delay_us(us)    __delay_cycles(CPU_CLOCK/1000000*(us))
+#define delay_ms(ms)    __delay_cycles(CPU_CLOCK/1000*(ms))
+
+
+#define TIMER1_A0_VECTOR (48*2u)
+#define TIMER2_A0_VECTOR (44*2u)
+#define PORT2_VECTOR    (42*2u) //0xFFD4 Port2
+#define PORT1_VECTOR    (47*2u) //0xFFDE Port1
+
+#define Do1 992 //bass
+#define Re1 2000 //drum
+#define Mi1 500 //hi-hat
+#define Fa1 1504 
+#define So1 1344 
+#define La1 1185 
+#define Ti1 1036
+#define Do2 7000
+
+
+int tone1 = 992; //don
+int tone2 = 1504; //tsu
+int tone3 = 992; //da
+int tone4 = So1; //ba
+int count = 500;
+
+
+int main( void )
+{
+  // Stop watchdog timer to prevent time out reset
+  WDTCTL = WDTPW + WDTHOLD;
+TA0CTL = TASSEL_2+MC_1+TACLR;
+  TA0CCTL1 = OUTMOD_3; 
+  
+  TA2CTL = TASSEL_2+MC_1+TACLR;
+  TA2CCTL1 = OUTMOD_3; 
+    
+    P1IFG=0x00;
+    P2IFG=0x00; 
+   
+    //buzzer 2.4
+    P2DIR=0x10; //00000100
+    P2SEL=0x10;
+    P2OUT=0x10; //00000010
+    P2REN=0x10;
+    //button 2.0
+    P2DIR|=0x00;
+    P2SEL|=0x00;
+    P2REN|=0x01; //00000010
+    P2OUT|=0x01;
+    P2IE|=0x01;
+    P2IES|=0x01; 
+    //button 2.3
+    P2DIR|=0x00;
+    P2SEL|=0x00;
+    P2REN|=0x08; //00000010
+    P2OUT|=0x08;
+    P2IE|=0x08;
+    P2IES|=0x08;
+    
+    //buzzer 1.2
+    P1DIR=0x04; //00000100
+    P1SEL=0x04;
+    P1OUT=0x04; //00000010
+    P1REN=0x04;
+    //button 1.3
+    P1DIR|=0x00;
+    P1SEL|=0x00;
+    P1REN|=0x08; //00000010
+    P1OUT|=0x08;
+    P1IE|=0x08;
+    P1IES|=0x08;
+            //button 1.6
+    P1DIR|=0x00;
+    P1SEL|=0x00;
+    P1REN|=0x40; //00000010
+    P1OUT|=0x40;
+    P1IE|=0x40;
+    P1IES|=0x40;
+
+  P3DIR=0x01; //3.0LED
+  P3SEL=0x00;
+  P3OUT=0x00;
+  
+  P4DIR=0x02; //4.1LED
+  P4SEL=0x00;
+  P4OUT=0x00;
+  
+  P6DIR=0x01; //6.0LED
+  P6SEL=0x00;
+  P6OUT=0x00;
+  
+  P7DIR=0x01; //7.0LED
+  P7SEL=0x00;
+  P7OUT=0x00;
+  
+   TA0CCR0 = 0 ;      //reset     
+   TA0CCR1 = 0;        //set  
+   
+   TA2CCR0 = 0 ;      //reset     
+   TA2CCR1 = 0;        //set 
+  
+   //TA1CCR0 = 16384 ; 
+  
+   __bis_SR_register(GIE);
+
+   while(1);
+  
+} 
+
+#pragma vector=PORT2_VECTOR //push button
+__interrupt void P2_ISR(void)
+{
+  //TA1CTL&=~TAIFG; 
+    //P1IE=0x00;
+    P2IE&=~0x09;
+   //push2=1;
+    if(P2IFG==0x01)  //da
+    {
+      P6OUT=0x01;
+      TA2CCR0 = tone3;
+      TA2CCR1 = tone3/2;
+      delay_ms(15);
+      TA2CCR0 = 0;
+      TA2CCR1 = 0;   
+      delay_ms(15);
+      P6OUT=0x00;
+    }
+    else  if(P2IFG==0x08)//don
+    {
+      P7OUT=0x01;
+      TA2CCR0 = tone1;
+      TA2CCR1 = tone1/2;
+      delay_ms(15);
+      TA2CCR0 = 0;
+      TA2CCR1 = 0;   
+      delay_ms(15);
+      P7OUT=0x00;
+    }
+      
+
+    //P1IFG=0x00;
+    //P1IE=0x32;
+    P2IFG=0x00;
+    P2IE|=0x09;
+}
+#pragma vector=PORT1_VECTOR //push button
+__interrupt void P1_ISR(void)
+{
+  //TA1CTL&=~TAIFG;
+    P1IE&=~0x48;
+    if(P1IFG==0x08)  //ba
+    {
+      P4OUT=0x02;
+      TA0CCR0 = tone4;
+      TA0CCR1 = tone4/2;
+      delay_ms(15);
+      TA0CCR0 = 0;
+      TA0CCR1 = 0;   
+      delay_ms(15);
+      P4OUT=0x00;
+    }
+    else if(P1IFG==0x40)//tsu
+    {
+      P3OUT=0x01;
+      TA0CCR0 = tone2;
+      TA0CCR1 = tone2/2;
+      delay_ms(15);
+      TA0CCR0 = 0;
+      TA0CCR1 = 0;   
+      delay_ms(15);
+      P3OUT=0x00;
+    }
+
+
+    //P1IFG=0x00;
+    //P1IE=0x32;
+    P1IFG=0x00;
+    P1IE|=0x48;
+}
+
+

@@ -1,0 +1,116 @@
+#include "io430.h"
+#include "intrinsics.h"
+#include "stdio.h"
+#define CPU_CLOCK       1000000
+#define delay_us(us)    __delay_cycles(CPU_CLOCK/1000000*(us))
+#define delay_ms(ms)    __delay_cycles(CPU_CLOCK/1000*(ms))
+
+#define TIMER1_A0_VECTOR (48*2u)
+#define PORT2_VECTOR    (42*2u) //0xFFD4 Port2
+#define PORT1_VECTOR    (47*2u) //0xFFDE Port1
+
+#define Do1 9000 //bass
+#define Re1 2000 //drum
+#define Mi1 500 //hi-hat
+
+int tone=Mi1;
+int count = 100;
+int i = 0;
+
+
+int main( void ) {     
+  
+  // Stop watchdog timer to prevent time out reset
+  WDTCTL = WDTPW + WDTHOLD;
+
+  //0FFE8h
+  TA1CTL = TASSEL_1+MC_1+TACLR+TAIE;
+  //
+  TA0CTL = TASSEL_2+MC_1+TACLR;
+  TA0CCTL1 = OUTMOD_3; 
+    
+    P1IFG=0x00;
+    P2IFG=0x00; 
+  
+    //button 2.1
+    P2DIR=0x00;
+    P2SEL=0x00;
+    P2REN=0x02; //00000010
+    P2OUT=0x02; 
+    P2IE=0x02;
+    P2IES=0x02; 
+    
+    //buzzer 1.2
+    P1DIR |= 0x04; //00000100
+    P1SEL |= 0x04;
+    P1OUT |= 0x02; //00000010
+    P1REN |= 0x32;
+    P1IE |= 0x32; //00110010
+    P1IES |= 0x02; //P1.4,1.5=0 P1.1=1
+    
+    //led 1.0
+    P1DIR |= 0x01;
+    P1SEL |= 0x00;
+    P1REN |= 0x02;
+    P1OUT |= 0x02;
+    P1IE |= 0x02;
+    P1IES |= 0x02;  
+
+   TA0CCR0 = 0 ;      //reset     
+   TA0CCR1 = 0 ;        //set    
+  
+   TA1CCR0 = 16384 ; 
+  
+   __bis_SR_register(GIE);
+   while(1){
+    TA0CCR0 = 0;
+    TA0CCR1 = 0;
+   }
+}
+
+void delay(count){
+    for(i=0;i<count;i++)
+      delay_ms(10);
+}
+
+#pragma vector=PORT2_VECTOR //push button
+__interrupt void P2_ISR(void)
+{
+  TA1CTL&=~TAIFG; 
+  P1IE=0x00;
+  P2IE=0x00;
+  if(count > 0)
+  {
+    count=count-5;
+  }
+  else
+  {
+    count = 100;
+  }
+    P1IFG=0x00;
+    P1IE=0x32;
+    P2IFG=0x00;
+    P2IE=0x02;
+}
+
+
+#pragma vector = TIMER1_A1_VECTOR
+__interrupt void TA1A1_ISR(void)
+{
+    P1IE=0x00;
+    P1OUT|=0x01;
+    TA0CCR0 = tone;
+    TA0CCR1 = tone/2;
+    
+    delay(count);
+    
+    P1OUT&= ~0x01;
+    TA0CCR0 = 0;
+    TA0CCR1 = 0;
+    
+    delay(count);
+    P1IFG=0x00;
+    P1IE=0x32;
+
+    TA1CTL&=~TAIFG;
+}
